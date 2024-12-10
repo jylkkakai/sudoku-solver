@@ -4,6 +4,7 @@ import numpy as np
 import imutils
 from pytesseract import image_to_string
 import time
+import pyautogui as pg
 
 def find_sudoku(image, debug=False):
     gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
@@ -37,12 +38,12 @@ def find_sudoku(image, debug=False):
         cv.waitKey(0)
         
     sudoku_img = image[puzzleCnt[0][0][1]:puzzleCnt[2][0][1], puzzleCnt[0][0][0]:puzzleCnt[2][0][0]]
-    sudoku_bbox = [(puzzleCnt[0][0][0], puzzleCnt[0][0][1]), (puzzleCnt[2][0][0], puzzleCnt[2][0][1])]
+    sudoku_bbox = [int(puzzleCnt[0][0][0]), int(puzzleCnt[0][0][1]), int(puzzleCnt[2][0][0]), int(puzzleCnt[2][0][1])]
 
     return sudoku_img, sudoku_bbox
 
 def get_digits_tesseract(image, debug=False):
-    arr = np.zeros((9,9))
+    arr = np.zeros((9,9), dtype=int)
     for i in range(0, 9):
         for j in range(0, 9):
             digit = image[i*55 + 5:i*55 + 50, j*55 + 5:j*55 + 50]
@@ -67,6 +68,8 @@ def solve_sudoku(puzzle, debug=False):
                 j = 0
             else:
                 j += 1
+            if i >= 9:
+                break
             continue
 
         if puzzle[i, j] == 9:
@@ -98,8 +101,26 @@ def solve_sudoku(puzzle, debug=False):
                 j += 1
         else:
             puzzle[i, j] += 1
-        if i == 9:
+
+        if i >= 9:
             break
+
+    return fixed_nums
+
+def fill_puzzle(solution, fixed_nums, bbox):
+    # print(solution)
+    x_step = int((bbox[2] - bbox[0])/9)
+    y_step = int((bbox[3] - bbox[1])/9)
+    x_offset = int(x_step/2)
+    y_offset = int(y_step/2)
+    print(x_offset, y_offset, x_step, y_step)
+    for i in range(0, 9):
+        for j in range(0, 9):
+            if not fixed_nums[i, j]:
+                pg.click(bbox[0] + j*x_step + x_offset, bbox[1] + i*x_step + x_offset)
+                time.sleep(0.01)
+                pg.press(str(solution[i, j])[0])
+
 
 start0 = time.time()
 screen_shot = ImageGrab.grab()
@@ -110,6 +131,7 @@ start = time.time()
 sudoku, bbox = find_sudoku(np.array(screen_shot))
 end = time.time()
 print("Find sudoku: ", end - start, "s")
+print(bbox)
 
 start = time.time()
 arr = get_digits_tesseract(sudoku)
@@ -119,9 +141,15 @@ print("Get digits: ", end - start, "s")
 # print(arr)
 
 start = time.time()
-solve_sudoku(arr)
+fixed_nums = solve_sudoku(arr)
 end = time.time()
 print("Solve sudoku: ", end - start, "s")
+print(arr)
+
+start = time.time()
+fixed_nums = fill_puzzle(arr, fixed_nums, bbox)
+end = time.time()
+print("Fill sudoku: ", end - start, "s")
 print("Total: ", end - start0, "s")
 
-print(arr)
+# print(arr)
