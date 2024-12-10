@@ -43,10 +43,12 @@ def find_sudoku(image, debug=False):
     return sudoku_img, sudoku_bbox
 
 def get_digits_tesseract(image, debug=False):
+    x_step = int(image.shape[0]/9)
+    y_step = int(image.shape[1]/9)
     arr = np.zeros((9,9), dtype=int)
     for i in range(0, 9):
         for j in range(0, 9):
-            digit = image[i*55 + 5:i*55 + 50, j*55 + 5:j*55 + 50]
+            digit = image[i*x_step + 5:i*x_step + x_step - 5, j*y_step + 5:j*y_step + y_step - 5]
             sdigit = image_to_string(digit, config="--psm 10")[0]
             arr[i, j] = 0 if sdigit == "_" else int(sdigit)
             if debug:
@@ -107,49 +109,94 @@ def solve_sudoku(puzzle, debug=False):
 
     return fixed_nums
 
+# def fill_puzzle(solution, fixed_nums, bbox):
+#     # print(solution)
+#     x_step = int((bbox[2] - bbox[0])/9)
+#     y_step = int((bbox[3] - bbox[1])/9)
+#     x_offset = int(x_step/2)
+#     y_offset = int(y_step/2)
+#
+#     for i in range(0, 9):
+#         for j in range(0, 9):
+#             if not fixed_nums[i, j]:
+#                 pg.click(bbox[0] + j*x_step + x_offset, bbox[1] + i*y_step + y_offset)
+#                 time.sleep(0.01)
+#                 pg.press(str(solution[i, j])[0])
+
 def fill_puzzle(solution, fixed_nums, bbox):
-    # print(solution)
     x_step = int((bbox[2] - bbox[0])/9)
     y_step = int((bbox[3] - bbox[1])/9)
     x_offset = int(x_step/2)
     y_offset = int(y_step/2)
-    print(x_offset, y_offset, x_step, y_step)
-    for i in range(0, 9):
-        for j in range(0, 9):
-            if not fixed_nums[i, j]:
-                pg.click(bbox[0] + j*x_step + x_offset, bbox[1] + i*x_step + x_offset)
-                time.sleep(0.01)
-                pg.press(str(solution[i, j])[0])
+
+    i = 0
+    j = 0
+    pg.click(bbox[0] + x_offset, bbox[1] + y_offset)
+
+    left = i%2 
+    while True:
+        pg.press(str(solution[i, j])[0])
+        dir = 'right'
+
+        if not left and j < 8:
+            j += 1
+            dir = 'right' 
+        elif (j == 8 and not left) or (j == 0 and left):
+            i += 1
+            left = i%2 
+            dir = 'down' 
+        else:
+            j -= 1
+            dir = 'left' 
+
+        pg.press(dir)
+        if i == 9:
+            break
 
 
-start0 = time.time()
-screen_shot = ImageGrab.grab()
-end = time.time()
-print("Imagegrab: ", end - start0, "s")
+def new_game(bbox):
+    time.sleep(3.0)
+    pg.click("new_game.png")
+    time.sleep(0.5)
+    pg.click("restart.png")
+    time.sleep(1.0)
+    pg.click(bbox[0] + 20, bbox[1] + 20)
+    time.sleep(1.0)
+    pg.click()
+    time.sleep(0.5)
+    pg.click()
 
-start = time.time()
-sudoku, bbox = find_sudoku(np.array(screen_shot))
-end = time.time()
-print("Find sudoku: ", end - start, "s")
-print(bbox)
+try:
+    pg.PAUSE = 0.020
+    while True:
+        start0 = time.time()
+        screen_shot = ImageGrab.grab()
+        end = time.time()
+        print("Imagegrab: ", end - start0, "s")
 
-start = time.time()
-arr = get_digits_tesseract(sudoku)
-end = time.time()
-print("Get digits: ", end - start, "s")
+        start = time.time()
+        sudoku, bbox = find_sudoku(np.array(screen_shot))
+        end = time.time()
+        print("Find sudoku: ", end - start, "s")
 
-# print(arr)
+        start = time.time()
+        arr = get_digits_tesseract(sudoku)
+        end = time.time()
+        print("Get digits: ", end - start, "s")
 
-start = time.time()
-fixed_nums = solve_sudoku(arr)
-end = time.time()
-print("Solve sudoku: ", end - start, "s")
-print(arr)
+        start = time.time()
+        fixed_nums = solve_sudoku(arr)
+        end = time.time()
+        print("Solve sudoku: ", end - start, "s")
+        # print(arr)
 
-start = time.time()
-fixed_nums = fill_puzzle(arr, fixed_nums, bbox)
-end = time.time()
-print("Fill sudoku: ", end - start, "s")
-print("Total: ", end - start0, "s")
+        start = time.time()
+        fixed_nums = fill_puzzle(arr, fixed_nums, bbox)
+        end = time.time()
+        print("Fill sudoku: ", end - start, "s")
+        print("Total: ", end - start0, "s")
 
-# print(arr)
+        new_game(bbox)
+
+except KeyboardInterrupt:
+    pass
